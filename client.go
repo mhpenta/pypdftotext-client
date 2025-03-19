@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -71,11 +72,11 @@ func NewClient(baseURL string, options ...ClientOption) (*Client, error) {
 	client := &Client{
 		BaseURL: parsedURL.String(),
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 60 * time.Second,
 		},
-		UserAgent: "Go-PDFClient/1.0",
+		UserAgent: "Go-PyPDFToTextClient/1.0",
 		Debug:     false,
-		Timeout:   30 * time.Second,
+		Timeout:   120 * time.Second,
 	}
 
 	for _, option := range options {
@@ -117,7 +118,7 @@ func (c *Client) HealthCheck(ctx context.Context) (*HealthResponse, error) {
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
 	}
-	
+
 	if c.APIKey != "" {
 		req.Header.Set("X-API-Key", c.APIKey)
 	}
@@ -130,7 +131,12 @@ func (c *Client) HealthCheck(ctx context.Context) (*HealthResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			slog.Error("Failed to close response body in remote PyPDFToText health check", "error", err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -153,7 +159,12 @@ func (c *Client) ExtractTextFromFile(ctx context.Context, filePath string) (*Tex
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err = file.Close()
+		if err != nil {
+			slog.Error("Failed to close file", "error", err)
+		}
+	}(file)
 
 	return c.ExtractTextFromReader(ctx, file, filepath.Base(filePath))
 }
@@ -191,7 +202,7 @@ func (c *Client) ExtractTextFromReader(ctx context.Context, reader io.Reader, fi
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
 	}
-	
+
 	if c.APIKey != "" {
 		req.Header.Set("X-API-Key", c.APIKey)
 	}
@@ -204,7 +215,12 @@ func (c *Client) ExtractTextFromReader(ctx context.Context, reader io.Reader, fi
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		innerErr := Body.Close()
+		if innerErr != nil {
+			slog.Error("Failed to close response body", "error", err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
