@@ -1,6 +1,6 @@
 # PDF Text Extraction Client for Go
 
-A Go client library for interacting with the PDF Text Extraction API service. This client provides a simple interface for extracting text from PDF files via the API.
+A Go client library for interacting with our PDF Text Extraction API service. This client provides a simple interface for extracting text from PDF files via the API. This service and client exists because of limitations within the go ecosystem around pdf to text extraction.
 
 ## Features
 
