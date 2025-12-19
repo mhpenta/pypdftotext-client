@@ -174,3 +174,155 @@ func TestExtractTextMock(t *testing.T) {
 		t.Errorf("ExtractTextFromBytes() text = %v, want %v", result.Text, "Sample extracted text from PDF.")
 	}
 }
+
+func TestExtractTextFromGCS(t *testing.T) {
+	outputLocation := "gs://test-bucket/output/test.txt"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/extract-from-gcs" {
+			t.Errorf("Expected request to '/extract-from-gcs', got: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got: %s", r.Method)
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check Content-Type
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected Content-Type: application/json, got: %s", r.Header.Get("Content-Type"))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(fmt.Sprintf(`{
+			"text": "Sample extracted text from GCS PDF.",
+			"page_count": 2,
+			"file_name": "test.pdf",
+			"file_size": 2048,
+			"method": "pdfplumber",
+			"output_location": "%s"
+		}`, outputLocation)))
+	}))
+	defer server.Close()
+
+	client, err := pdfclient.NewClient(server.URL)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test with output location
+	request := pdfclient.GCSExtractionRequest{
+		InputGCSURL:  "gs://test-bucket/input/test.pdf",
+		OutputGCSURL: &outputLocation,
+		Method:       "auto",
+	}
+
+	result, err := client.ExtractTextFromGCS(context.Background(), request)
+	if err != nil {
+		t.Fatalf("ExtractTextFromGCS() error = %v", err)
+	}
+
+	if result.Text != "Sample extracted text from GCS PDF." {
+		t.Errorf("ExtractTextFromGCS() text = %v, want %v", result.Text, "Sample extracted text from GCS PDF.")
+	}
+
+	if result.PageCount != 2 {
+		t.Errorf("ExtractTextFromGCS() pageCount = %v, want %v", result.PageCount, 2)
+	}
+
+	if result.Method != "pdfplumber" {
+		t.Errorf("ExtractTextFromGCS() method = %v, want %v", result.Method, "pdfplumber")
+	}
+
+	if result.OutputLocation == nil || *result.OutputLocation != outputLocation {
+		t.Errorf("ExtractTextFromGCS() outputLocation = %v, want %v", result.OutputLocation, outputLocation)
+	}
+}
+
+func TestExtractTextFromGCS_NoOutputLocation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"text": "Sample text",
+			"page_count": 1,
+			"file_name": "test.pdf",
+			"file_size": 1024,
+			"method": "pypdf2"
+		}`))
+	}))
+	defer server.Close()
+
+	client, err := pdfclient.NewClient(server.URL)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test without output location
+	request := pdfclient.GCSExtractionRequest{
+		InputGCSURL: "gs://test-bucket/input/test.pdf",
+		Method:      "pypdf2",
+	}
+
+	result, err := client.ExtractTextFromGCS(context.Background(), request)
+	if err != nil {
+		t.Fatalf("ExtractTextFromGCS() error = %v", err)
+	}
+
+	if result.OutputLocation != nil {
+		t.Errorf("ExtractTextFromGCS() outputLocation = %v, want nil", result.OutputLocation)
+	}
+}
+
+func TestClientError_GCSErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        pdfclient.ClientError
+		wantPerm   bool
+		wantNotFound bool
+	}{
+		{
+			name: "GCS Permission Error",
+			err: pdfclient.ClientError{
+				StatusCode: http.StatusForbidden,
+				Detail:     "Permission denied accessing gs://bucket/file.pdf",
+			},
+			wantPerm:     true,
+			wantNotFound: false,
+		},
+		{
+			name: "GCS Not Found Error",
+			err: pdfclient.ClientError{
+				StatusCode: http.StatusNotFound,
+				Detail:     "Blob does not exist: gs://bucket/file.pdf",
+			},
+			wantPerm:     false,
+			wantNotFound: true,
+		},
+		{
+			name: "Other Error",
+			err: pdfclient.ClientError{
+				StatusCode: http.StatusInternalServerError,
+				Detail:     "Internal server error",
+			},
+			wantPerm:     false,
+			wantNotFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.err.IsGCSPermissionError(); got != tt.wantPerm {
+				t.Errorf("IsGCSPermissionError() = %v, want %v", got, tt.wantPerm)
+			}
+			if got := tt.err.IsGCSNotFoundError(); got != tt.wantNotFound {
+				t.Errorf("IsGCSNotFoundError() = %v, want %v", got, tt.wantNotFound)
+			}
+		})
+	}
+}
