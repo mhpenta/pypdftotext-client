@@ -83,6 +83,12 @@ func NewClient(baseURL string, options ...ClientOption) (*Client, error) {
 		option(client)
 	}
 
+	// Apply the timeout to the HTTP client if it wasn't provided via WithHTTPClient
+	// Check if the HTTPClient timeout differs from our Timeout setting
+	if client.HTTPClient.Timeout != client.Timeout {
+		client.HTTPClient.Timeout = client.Timeout
+	}
+
 	return client, nil
 }
 
