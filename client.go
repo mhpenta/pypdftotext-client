@@ -97,11 +97,28 @@ type HealthResponse struct {
 	Version string `json:"version"`
 }
 
+type PageData struct {
+	Page int    `json:"page"`
+	Text string `json:"text"`
+}
+
 type TextExtractionResponse struct {
-	Text      string `json:"text"`
-	PageCount int    `json:"page_count"`
-	FileName  string `json:"file_name"`
-	FileSize  int    `json:"file_size"`
+	Pages     []PageData `json:"pages"`
+	PageCount int        `json:"page_count"`
+	FileName  string     `json:"file_name"`
+	FileSize  int        `json:"file_size"`
+}
+
+// GetFullText reconstructs the full text from pages
+func (r *TextExtractionResponse) GetFullText() string {
+	var sb strings.Builder
+	for i, page := range r.Pages {
+		sb.WriteString(page.Text)
+		if i < len(r.Pages)-1 {
+			sb.WriteString("\n\n")
+		}
+	}
+	return sb.String()
 }
 
 type GCSExtractionRequest struct {
@@ -112,12 +129,24 @@ type GCSExtractionRequest struct {
 }
 
 type GCSExtractionResponse struct {
-	Text           string  `json:"text"`
-	PageCount      int     `json:"page_count"`
-	FileName       string  `json:"file_name"`
-	FileSize       int     `json:"file_size"`
-	Method         string  `json:"method"`
-	OutputLocation *string `json:"output_location,omitempty"`
+	Pages          []PageData `json:"pages"`
+	PageCount      int        `json:"page_count"`
+	FileName       string     `json:"file_name"`
+	FileSize       int        `json:"file_size"`
+	Method         string     `json:"method"`
+	OutputLocation *string    `json:"output_location,omitempty"`
+}
+
+// GetFullText reconstructs the full text from pages
+func (r *GCSExtractionResponse) GetFullText() string {
+	var sb strings.Builder
+	for i, page := range r.Pages {
+		sb.WriteString(page.Text)
+		if i < len(r.Pages)-1 {
+			sb.WriteString("\n\n")
+		}
+	}
+	return sb.String()
 }
 
 type ClientError struct {

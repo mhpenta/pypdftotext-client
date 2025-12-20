@@ -96,9 +96,10 @@ func main() {
 
 	fmt.Printf("\nExtracted Text Preview (first 500 chars):\n")
 
-	previewText := result.Text
-	if len(result.Text) > 500 {
-		previewText = result.Text[:500] + "..."
+	fullText := result.GetFullText()
+	previewText := fullText
+	if len(fullText) > 500 {
+		previewText = fullText[:500] + "..."
 	}
 
 	fmt.Println(previewText)

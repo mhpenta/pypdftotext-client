@@ -128,11 +128,11 @@ func TestExtractTextMock(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
-			"text": "Sample extracted text from PDF.",
+			"pages": [{"page": 1, "text": "Sample extracted text from PDF."}],
 			"page_count": 1,
 			"file_name": "test.pdf",
 			"file_size": 1024
-		}`)) 
+		}`))
 	}))
 	defer server.Close()
 
@@ -155,12 +155,16 @@ func TestExtractTextMock(t *testing.T) {
 		t.Fatalf("ExtractTextFromFile() error = %v", err)
 	}
 
-	if result.Text != "Sample extracted text from PDF." {
-		t.Errorf("ExtractTextFromFile() text = %v, want %v", result.Text, "Sample extracted text from PDF.")
+	if result.GetFullText() != "Sample extracted text from PDF." {
+		t.Errorf("ExtractTextFromFile() text = %v, want %v", result.GetFullText(), "Sample extracted text from PDF.")
 	}
 
 	if result.PageCount != 1 {
 		t.Errorf("ExtractTextFromFile() pageCount = %v, want %v", result.PageCount, 1)
+	}
+
+	if len(result.Pages) != 1 {
+		t.Errorf("ExtractTextFromFile() pages length = %v, want %v", len(result.Pages), 1)
 	}
 
 	// Test ExtractTextFromBytes
@@ -170,8 +174,8 @@ func TestExtractTextMock(t *testing.T) {
 		t.Fatalf("ExtractTextFromBytes() error = %v", err)
 	}
 
-	if result.Text != "Sample extracted text from PDF." {
-		t.Errorf("ExtractTextFromBytes() text = %v, want %v", result.Text, "Sample extracted text from PDF.")
+	if result.GetFullText() != "Sample extracted text from PDF." {
+		t.Errorf("ExtractTextFromBytes() text = %v, want %v", result.GetFullText(), "Sample extracted text from PDF.")
 	}
 }
 
@@ -200,7 +204,10 @@ func TestExtractTextFromGCS(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(fmt.Sprintf(`{
-			"text": "Sample extracted text from GCS PDF.",
+			"pages": [
+				{"page": 1, "text": "Sample extracted text from GCS PDF page 1."},
+				{"page": 2, "text": "Sample extracted text from GCS PDF page 2."}
+			],
 			"page_count": 2,
 			"file_name": "test.pdf",
 			"file_size": 2048,
@@ -227,12 +234,17 @@ func TestExtractTextFromGCS(t *testing.T) {
 		t.Fatalf("ExtractTextFromGCS() error = %v", err)
 	}
 
-	if result.Text != "Sample extracted text from GCS PDF." {
-		t.Errorf("ExtractTextFromGCS() text = %v, want %v", result.Text, "Sample extracted text from GCS PDF.")
+	expectedText := "Sample extracted text from GCS PDF page 1.\n\nSample extracted text from GCS PDF page 2."
+	if result.GetFullText() != expectedText {
+		t.Errorf("ExtractTextFromGCS() text = %v, want %v", result.GetFullText(), expectedText)
 	}
 
 	if result.PageCount != 2 {
 		t.Errorf("ExtractTextFromGCS() pageCount = %v, want %v", result.PageCount, 2)
+	}
+
+	if len(result.Pages) != 2 {
+		t.Errorf("ExtractTextFromGCS() pages length = %v, want %v", len(result.Pages), 2)
 	}
 
 	if result.Method != "pdfplumber" {

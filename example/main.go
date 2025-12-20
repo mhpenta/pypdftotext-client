@@ -69,9 +69,10 @@ func main() {
 	fmt.Printf("Pages: %d\n", result.PageCount)
 	fmt.Printf("\nExtracted Text Preview (first 500 chars):\n")
 
-	previewText := result.Text
-	if len(result.Text) > 5000 {
-		previewText = result.Text[:5000] + "..."
+	fullText := result.GetFullText()
+	previewText := fullText
+	if len(fullText) > 5000 {
+		previewText = fullText[:5000] + "..."
 	}
 
 	fmt.Println(previewText)
