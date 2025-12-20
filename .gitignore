@@ -2,3 +2,4 @@ notes.md
 .idea/
 clitool/
 integration_test.go
+stresstest/
