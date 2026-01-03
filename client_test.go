@@ -2,6 +2,7 @@ package pdfclient_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"

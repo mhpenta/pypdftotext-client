@@ -126,6 +126,7 @@ type GCSExtractionRequest struct {
 	OutputGCSURL *string `json:"output_gcs_url,omitempty"`
 	Method       string  `json:"method,omitempty"`
 	ProjectID    *string `json:"project_id,omitempty"`
+	OutputFormat string  `json:"output_format,omitempty"`
 }
 
 type GCSExtractionResponse struct {
@@ -359,6 +360,11 @@ func (c *Client) ExtractTextFromGCS(ctx context.Context, request GCSExtractionRe
 	// Set default method if not provided
 	if request.Method == "" {
 		request.Method = "auto"
+	}
+
+	// Set default output format if not provided
+	if request.OutputFormat == "" {
+		request.OutputFormat = "text"
 	}
 
 	// Marshal request body
